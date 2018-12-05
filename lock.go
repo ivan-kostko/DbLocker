@@ -52,7 +52,7 @@ func NewLocker(txBeginner TxBeginner) Locker {
 		log.Debug("Executing sql statement")
 
 		stmt := fmt.Sprintf(slqSatementTemplate, lockId)
-		log.Tracef("Executing sl statement %s in order to obtain shared lock ", stmt)
+		log.Tracef("Statement: %s", stmt)
 		if _, err = tx.Exec(stmt); err != nil {
 			e := errors.Wrap(err, "failed to begin database transaction")
 			log.Error(e.Error())
