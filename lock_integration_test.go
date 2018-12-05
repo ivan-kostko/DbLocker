@@ -1,8 +1,10 @@
-////+build integration
+//+build integration
+
 package dblocker_test
 
 import (
 	"database/sql"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -21,12 +23,19 @@ const (
 // Integration tests settings
 var (
 	// Connection string to postgres db where lock will be acquired
-	psqlUri = "postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable"
+	psqlUri string
 
 	// Sleep duretion in nanoseconds in order to let concurrent processes to
 	// begin a new transaction(s) and start executing sql statement
 	sleepDuration = 100000000
+
+	// Number of seconds to wait for postges to come up
+	WaitForPostgresSec = 10
 )
+
+func init() {
+	psqlUri = os.Getenv("POSTGRES_URI")
+}
 
 func Test_ConcurrentlyObtainingLocks(t *testing.T) {
 
@@ -72,6 +81,15 @@ func Test_ConcurrentlyObtainingLocks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to connect to database due to error %s", err.Error())
 	}
+
+	// Wait while postgres is coming up
+	for i := 0; i < WaitForPostgresSec; i++ {
+		if err := db.Ping(); err != nil {
+			t.Logf("Server %s is not yet responding...", psqlUri)
+			time.Sleep(1000000000)
+		}
+	}
+
 	defer db.Close()
 
 	for _, tCase := range testCases {
