@@ -82,6 +82,8 @@ func Test_ConcurrentlyObtainingLocks(t *testing.T) {
 		t.Fatalf("Failed to connect to database due to error %s", err.Error())
 	}
 
+	defer db.Close()
+
 	// Wait while postgres is coming up
 	for i := 0; i < WaitForPostgresSec; i++ {
 		if err := db.Ping(); err != nil {
@@ -89,8 +91,6 @@ func Test_ConcurrentlyObtainingLocks(t *testing.T) {
 			time.Sleep(1000000000)
 		}
 	}
-
-	defer db.Close()
 
 	for _, tCase := range testCases {
 
