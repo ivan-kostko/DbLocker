@@ -1,0 +1,26 @@
+version: "2.2"
+
+services:
+
+  postgres:
+    image: postgres:9.5.4
+
+    ports:
+      - "5432"
+
+  test_integration:
+    depends_on:
+      - postgres
+    image: golang:1.10.5-alpine3.7
+    volumes:
+      - .:/go/src/github.com/ivan-kostko/DbLocker
+    working_dir: /go/src/github.com/ivan-kostko/DbLocker
+    environment:
+      - POSTGRES_URI=postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable
+
+
+
+
+
+
+
