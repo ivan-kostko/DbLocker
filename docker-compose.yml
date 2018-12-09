@@ -11,7 +11,7 @@ services:
   test_integration:
     depends_on:
       - postgres
-    image: golang:1.10.5-alpine3.7
+    image: golang:1.10.5
     volumes:
       - .:/go/src/github.com/ivan-kostko/DbLocker
     working_dir: /go/src/github.com/ivan-kostko/DbLocker
