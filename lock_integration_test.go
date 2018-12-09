@@ -27,7 +27,7 @@ var (
 
 	// Sleep duretion in nanoseconds in order to let concurrent processes to
 	// begin a new transaction(s) and start executing sql statement
-	sleepDuration = 100000000
+	sleepDuration = 200000000
 
 	// Number of seconds to wait for postges to come up
 	WaitForPostgresSec = 10
@@ -57,14 +57,14 @@ func Test_ConcurrentlyObtainingLocks(t *testing.T) {
 			Alias:                     `Same concurrent locker`,
 			OriginalLockId:            "Blah",
 			CocncurrentLockIds:        []string{"Blah"},
-			ObtainedConcurrentlyLocks: []string{""},
+			ObtainedConcurrentlyLocks: []string{},
 			ObtainedAfterReleaseLocks: []string{"Blah"},
 		},
 		{
 			Alias:                     `5 the same concurrent lockers`,
 			OriginalLockId:            "Blah",
 			CocncurrentLockIds:        []string{"Blah", "Blah", "Blah", "Blah", "Blah"},
-			ObtainedConcurrentlyLocks: []string{"", "", "", "", ""},
+			ObtainedConcurrentlyLocks: []string{},
 			ObtainedAfterReleaseLocks: []string{"Blah", "Blah", "Blah", "Blah", "Blah"},
 		},
 		{
@@ -104,7 +104,8 @@ func Test_ConcurrentlyObtainingLocks(t *testing.T) {
 			}
 
 			// Slice to report concurrently obtained locks.
-			obtainedLocksReport := make([]string, len(tCase.CocncurrentLockIds))
+			obtainedLocksReport := []string{}
+			obtainedLocksChanel := make(chan string, len(tCase.CocncurrentLockIds))
 
 			// When 1
 
@@ -119,18 +120,22 @@ func Test_ConcurrentlyObtainingLocks(t *testing.T) {
 				// Start obtaining lock concurrently
 				go func(i int, lockIdN string) {
 
+					defer wg.Done()
+
 					lockFactoryN := locker.NewLocker(db)
 
 					// Report that we are ready to request a lock
 					close(readyToRequestLock)
 					lockN, _ := lockFactoryN(lockIdN)
 
-					// Release lock on exit
-					defer lockN.UnLock()
-					defer wg.Done()
-
 					// Report obtained lock
-					obtainedLocksReport[i] = lockIdN
+					obtainedLocksChanel <- lockIdN
+
+					// Release lock on exit
+					if err := lockN.UnLock(); err != nil {
+						t.Fatal(err)
+					}
+
 				}(i, lockIdN)
 
 				// Wait while it is ready to request lock
@@ -142,6 +147,10 @@ func Test_ConcurrentlyObtainingLocks(t *testing.T) {
 			// Give it a bit time to open transaction and execute statement
 			time.Sleep(time.Duration(sleepDuration))
 
+			for len(obtainedLocksChanel) > 0 {
+				x := <-obtainedLocksChanel
+				obtainedLocksReport = append(obtainedLocksReport, x)
+			}
 			assert.ElementsMatch(t, obtainedLocksReport, tCase.ObtainedConcurrentlyLocks, "Concurrently obtained locks are not expected")
 
 			// When 2
@@ -150,7 +159,10 @@ func Test_ConcurrentlyObtainingLocks(t *testing.T) {
 			wg.Wait()
 
 			// Then
-
+			for len(obtainedLocksChanel) > 0 {
+				x := <-obtainedLocksChanel
+				obtainedLocksReport = append(obtainedLocksReport, x)
+			}
 			assert.ElementsMatch(t, obtainedLocksReport, tCase.ObtainedAfterReleaseLocks, "Obtained locks after releasing original are not expected")
 
 		}
