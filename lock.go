@@ -50,7 +50,6 @@ func NewLocker(txBeginner TxBeginner) Locker {
 		}
 
 		log.Debug("Executing sql statement")
-
 		stmt := fmt.Sprintf(slqSatementTemplate, lockId)
 		log.Tracef("Statement: %s", stmt)
 		if _, err = tx.Exec(stmt); err != nil {
@@ -59,12 +58,16 @@ func NewLocker(txBeginner TxBeginner) Locker {
 			return nil, e
 		}
 
+		log.Info("Lock obtained")
+
 		return func() error {
+			log.Debug("Rolling back transaction")
 			if err := tx.Rollback(); err != nil {
 				e := errors.Wrap(err, "failed to rollback database transaction")
 				log.Error(e.Error())
 				return e
 			}
+			log.Info("Lock released")
 			return nil
 		}, nil
 	}
